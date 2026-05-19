@@ -19,10 +19,10 @@ resource "kubernetes_ingress_v1" "platform_ingress" {
       "alb.ingress.kubernetes.io/group.name"  = "prod-ingress-group"
       "alb.ingress.kubernetes.io/group.order" = "10"
 
-      # 전술 3: WAFv2 동적 결합 (ARN을 변수로 주입)
-      # - 모듈 또는 루트에서 aws_wafv2_web_acl.prod_ingress_waf.arn을
-      #   제공할 수 있다면 해당 값을 `var.wafv2_acl_arn`으로 전달하세요.
-      "alb.ingress.kubernetes.io/wafv2-acl-arn" = var.wafv2_acl_arn
+      # 전술 3: WAFv2 동적 결합 (루트 모듈의 WAF 리소스 직접 참조)
+      # - 동일 디렉터리 내 다른 .tf 파일(waf.tf)에 선언된
+      #   aws_wafv2_web_acl.prod_ingress_waf 리소스를 직접 참조합니다.
+      "alb.ingress.kubernetes.io/wafv2-acl-arn" = aws_wafv2_web_acl.ingress_waf.arn
     }
   }
 
@@ -51,10 +51,4 @@ resource "kubernetes_ingress_v1" "platform_ingress" {
     helm_release.aws_load_balancer_controller,
     kubernetes_service_v1.target_svc,
   ]
-}
-
-variable "wafv2_acl_arn" {
-  description = "Optional WAFv2 Web ACL ARN to attach to the ALB Ingress. Provide aws_wafv2_web_acl.prod_ingress_waf.arn when available."
-  type        = string
-  default     = ""
 }
