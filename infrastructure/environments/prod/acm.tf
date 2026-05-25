@@ -24,7 +24,7 @@ resource "aws_acm_certificate" "prod_cert" {
 # 2. ACM이 요구하는 DNS-01 검증용 임시 TXT 레코드를 Route 53 장부에 자동으로 쓰기 (Zero-Touch)
 resource "aws_route53_record" "prod_cert_validation" {
   for_each = {
-    for dvo in aws_acm_certificate.prod_cert.domain_validation_options : dvo.domain_name => {
+    for dvo in aws_acm_certificate.prod_cert.domain_validation_options : "${dvo.resource_record_name}:${dvo.resource_record_type}" => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type

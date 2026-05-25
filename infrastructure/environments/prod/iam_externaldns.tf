@@ -6,6 +6,12 @@
 # -------------------------------------------------------------------------
 
 # 1. ExternalDNS가 AWS Route53에 접근할 수 있는 최소 권한 Policy 정의
+
+data "aws_route53_zone" "externaldns_zone" {
+  name         = "feifo.click."
+  private_zone = false
+}
+
 resource "aws_iam_policy" "prod_externaldns_route53_policy" {
   name        = "prod-externaldns-route53-policy"
   path        = "/"
@@ -28,7 +34,7 @@ resource "aws_iam_policy" "prod_externaldns_route53_policy" {
         Action = [
           "route53:ListResourceRecordSets"
         ]
-        Resource = "*"
+        Resource = "arn:aws:route53:::hostedzone/${data.aws_route53_zone.externaldns_zone.zone_id}"
       },
       {
         Sid    = "AllowChangeResourceRecordSets"
@@ -36,7 +42,7 @@ resource "aws_iam_policy" "prod_externaldns_route53_policy" {
         Action = [
           "route53:ChangeResourceRecordSets"
         ]
-        Resource = "arn:aws:route53:::hostedzone/*"
+        Resource = "arn:aws:route53:::hostedzone/${data.aws_route53_zone.externaldns_zone.zone_id}"
       }
     ]
   })

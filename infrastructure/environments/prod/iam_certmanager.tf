@@ -43,14 +43,14 @@ data "aws_iam_policy_document" "prod_certmanager_assume_role_policy" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")} :sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       # 오직 cert-manager 네임스페이스의 cert-manager SA만 접근 가능
-      values   = ["system:serviceaccount:cert-manager:cert-manager"]
+      values = ["system:serviceaccount:cert-manager:cert-manager"]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")} :aud"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:aud"
       values   = ["sts.amazonaws.com"]
     }
 
@@ -91,7 +91,7 @@ resource "kubernetes_service_account_v1" "cert_manager_sa" {
     }
   }
   automount_service_account_token = true
-  
+
   # AWS 권한 전파 및 네임스페이스 생성이 완료된 후 SA 생성 강제 (레이스 컨디션 방어)
   depends_on = [
     kubernetes_namespace_v1.cert_manager_ns,

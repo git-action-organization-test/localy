@@ -10,7 +10,7 @@ resource "helm_release" "external_dns" {
   chart      = "external-dns"
   namespace  = "kube-system"
 
-  version    = "1.14.3"
+  version = "1.14.3"
 
   # 1단계에서 만든 ServiceAccount가 완전히 준비된 이후에만 Helm Release 실행
   depends_on = [

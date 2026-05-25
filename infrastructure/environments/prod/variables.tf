@@ -6,5 +6,5 @@ variable "admin_ip" {
 variable "allow_global_cluster_api_access" {
   description = "true이면 public_access_cidrs에 0.0.0.0/0 추가 (임시 프로비저닝용, 운영 전 false 권장)"
   type        = bool
-  default     = true
+  default     = false
 }
