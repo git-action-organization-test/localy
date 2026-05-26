@@ -31,7 +31,6 @@ resource "helm_release" "kube_prometheus_stack" {
   depends_on = [
     aws_eks_addon.ebs_csi,
     helm_release.aws_load_balancer_controller,
-    kubernetes_storage_class_v1.gp3,
   ]
 
   values = [
