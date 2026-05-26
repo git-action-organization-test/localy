@@ -1,13 +1,7 @@
 # -------------------------------------------------------------------------
-# 1. 선행 작업: KMS Key ARN 동적 낚아채기 (Hardcoding 방지)
-# -------------------------------------------------------------------------
-data "aws_kms_key" "eks_secrets" {
-  # modules/eks/kms.tf에서 명명한 Alias를 타겟팅하여 ARN을 안전하게 로드합니다.
-  key_id = "alias/${local.cluster_name}-secrets" 
-}
-
-# -------------------------------------------------------------------------
-# 2. 제로 트러스트 OIDC 신뢰 정책 (Trust Relationship)
+# 1. 제로 트러스트 OIDC 신뢰 정책 (Trust Relationship)
+# KMS ARN은 동일 state의 module.eks output을 직접 참조합니다.
+# data "aws_kms_key"는 키 미생성 시 plan/apply에서 'couldn't find resource'를 유발합니다.
 # -------------------------------------------------------------------------
 data "aws_iam_policy_document" "ebs_csi_assume_role_policy" {
   statement {
@@ -32,7 +26,7 @@ data "aws_iam_policy_document" "ebs_csi_assume_role_policy" {
 # 3. IAM Role 생성 및 AWS 깡통 권한 부여
 # -------------------------------------------------------------------------
 resource "aws_iam_role" "ebs_csi_role" {
-  name               = "${local.cluster_name}-ebs-csi-role"
+  name               = "${module.eks.cluster_name}-ebs-csi-role"
   assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume_role_policy.json
 }
 
@@ -57,13 +51,13 @@ data "aws_iam_policy_document" "ebs_csi_kms_policy" {
       "kms:ReEncrypt*"
     ]
     # 위에서 동적으로 낚아챈 KMS Key에만 권한을 허용 (최소 권한의 원칙)
-    resources = [data.aws_kms_key.eks_secrets.arn]
+    resources = [module.eks.kms_key_arn]
   }
 }
 
 # 인라인 정책을 Role에 영구 용접 (이 정책이 없으면 볼륨 Mount 시 Pending 발생)
 resource "aws_iam_role_policy" "ebs_csi_kms_inline" {
-  name   = "${local.cluster_name}-ebs-csi-kms-policy"
+  name   = "${module.eks.cluster_name}-ebs-csi-kms-policy"
   role   = aws_iam_role.ebs_csi_role.name
   policy = data.aws_iam_policy_document.ebs_csi_kms_policy.json
 }

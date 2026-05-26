@@ -28,6 +28,11 @@ output "cluster_oidc_issuer_url" {
   value       = aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
 
+output "kms_key_arn" {
+  description = "EKS Secret 암호화용 KMS Key ARN (EBS CSI 등 IRSA에서 참조)"
+  value       = aws_kms_key.eks_secrets.arn
+}
+
 output "karpenter_controller_role_arn" {
   description = "Karpenter 컨트롤러 파드가 사용할 IAM Role ARN"
   value       = aws_iam_role.karpenter_controller.arn
