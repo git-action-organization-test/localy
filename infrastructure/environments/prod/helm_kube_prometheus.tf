@@ -40,6 +40,29 @@ resource "helm_release" "kube_prometheus_stack" {
       # -----------------------------------------------------------------------
       grafana = {
         adminPassword = random_password.grafana_admin.result
+        
+        ingress = {
+          enabled          = true
+          ingressClassName = "alb"
+          annotations = {
+            # 1. 전임 엔지니어 원포인트 튜닝: 퍼블릭 망 노출
+            "alb.ingress.kubernetes.io/scheme" = "internet-facing"
+            # 2. 공유 ALB 그룹 결속 (비용 최적화)
+            "alb.ingress.kubernetes.io/group.name" = "prod-ingress-group"
+            "alb.ingress.kubernetes.io/target-type" = "ip"
+            "alb.ingress.kubernetes.io/listen-ports" = "[{\"HTTPS\":443}]"
+            
+						# 3. acm.tf 리소스를 직접 바라보도록 'data.' 제거
+						"alb.ingress.kubernetes.io/certificate-arn" = aws_acm_certificate.prod_cert.arn
+						
+						# 4. waf.tf의 실제 리소스 이름인 'ingress_waf'로 명칭 교정
+						"alb.ingress.kubernetes.io/wafv2-acl-arn"   = aws_wafv2_web_acl.ingress_waf.arn
+          }
+          hosts = [
+            "grafana.feifo.click" # 접속할 관제탑 URL
+          ]
+          paths = ["/*"]
+        }
       }
 
       # -----------------------------------------------------------------------
