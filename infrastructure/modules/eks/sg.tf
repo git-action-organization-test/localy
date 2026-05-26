@@ -41,6 +41,20 @@ resource "aws_security_group_rule" "cluster_ingress_admin" {
   description       = "Allow Admin IP to access Control Plane API"
 }
 
+resource "aws_security_group_rule" "cluster_additional" {
+  for_each = var.cluster_security_group_additional_rules
+
+  type                     = each.value.type
+  from_port                = each.value.from_port
+  to_port                  = each.value.to_port
+  protocol                 = each.value.protocol
+  security_group_id        = aws_security_group.cluster.id
+  cidr_blocks              = lookup(each.value, "cidr_blocks", [])
+  ipv6_cidr_blocks         = lookup(each.value, "ipv6_cidr_blocks", [])
+  source_security_group_id = lookup(each.value, "source_security_group_id", null)
+  description              = lookup(each.value, "description", null)
+}
+
 # [Node SG] 노드 간 통신 전면 허용 (같은 SG를 가진 노드끼리)
 resource "aws_security_group_rule" "node_ingress_self" {
   type                     = "ingress"
