@@ -30,6 +30,7 @@ resource "aws_s3_bucket_versioning" "loki_logs" {
 resource "aws_s3_bucket_lifecycle_configuration" "loki_logs" {
   bucket = aws_s3_bucket.loki_logs.id
 
+  # 1. 기존 룰: 과거 버전 3일 뒤 소각 (유지)
   rule {
     id     = "noncurrent-version-expiration"
     status = "Enabled"
@@ -38,6 +39,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "loki_logs" {
 
     noncurrent_version_expiration {
       noncurrent_days = 3
+    }
+  }
+
+  rule {
+    id     = "abort-incomplete-multipart-upload"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1 # 업로드 시작 후 1일이 지나도 미완료면 즉시 소각
     }
   }
 }
@@ -87,44 +99,13 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "loki_logs" {
 }
 
 # ========================================================================
-# Zero-Trust Checkpoint — S3 VPC Endpoint (Gateway) binding only
+# Zero-Trust Checkpoint — 예외 없는 VPC Endpoint 철벽 (Admin 예외 제거)
 # ========================================================================
 
 data "aws_iam_policy_document" "loki_logs" {
-  statement {
-    sid    = "AllowS3AccessViaS3VpcEndpoint"
-    effect = "Allow"
-
-    principals {
-      type        = "*"
-      identifiers = ["*"]
-    }
-
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject",
-      "s3:ListBucket",
-      "s3:GetBucketLocation",
-      "s3:ListBucketMultipartUploads",
-      "s3:AbortMultipartUpload",
-      "s3:ListMultipartUploadParts",
-    ]
-
-    resources = [
-      aws_s3_bucket.loki_logs.arn,
-      "${aws_s3_bucket.loki_logs.arn}/*",
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:sourceVpce"
-      values   = [module.network.s3_vpc_endpoint_id]
-    }
-  }
 
   statement {
-    sid    = "DenyS3AccessNotViaS3VpcEndpoint"
+    sid    = "StrictDenyOutsideVpcEndpoint"
     effect = "Deny"
 
     principals {
@@ -132,6 +113,8 @@ data "aws_iam_policy_document" "loki_logs" {
       identifiers = ["*"]
     }
 
+    # 제어 플레인(버킷 설정)이 아닌 오직 데이터 플레인(로그 접근)만 차단 
+    # -> Terraform 배포에는 전혀 지장을 주지 않음
     actions = [
       "s3:GetObject",
       "s3:PutObject",
@@ -148,16 +131,12 @@ data "aws_iam_policy_document" "loki_logs" {
       "${aws_s3_bucket.loki_logs.arn}/*",
     ]
 
+    # [수정됨] Admin 예외(ArnNotEquals) 조항 완전 삭제
+    # 오직 승인된 VPC Endpoint를 통해서만 접근 가능 (해커가 토큰을 탈취해도 인터넷망 접근 불가)
     condition {
       test     = "StringNotEquals"
       variable = "aws:sourceVpce"
       values   = [module.network.s3_vpc_endpoint_id]
-    }
-
-    condition {
-      test     = "ArnNotEquals"
-      variable = "aws:PrincipalArn"
-      values   = [data.aws_caller_identity.current.arn]
     }
   }
 }
