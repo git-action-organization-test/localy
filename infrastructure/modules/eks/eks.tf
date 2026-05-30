@@ -17,8 +17,8 @@ resource "aws_eks_cluster" "this" {
     subnet_ids              = var.subnet_ids
     security_group_ids      = [aws_security_group.cluster.id]
     endpoint_private_access = true # VPC 내부 통신 활성화
-    endpoint_public_access  = true # 관리자 접속을 위한 퍼블릭 엔드포인트 활성화
-    public_access_cidrs     = [var.admin_ip] # 내 로컬 PC IP만 허용
+    endpoint_public_access  = var.cluster_endpoint_public_access
+    public_access_cidrs     = var.public_access_cidrs
   }
 
   # [🚨 NEW 핫픽스] EKS Access Entry API 정식 활성화

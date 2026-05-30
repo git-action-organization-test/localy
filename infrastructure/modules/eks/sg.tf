@@ -12,8 +12,8 @@ resource "aws_security_group" "node" {
   vpc_id      = var.vpc_id
 
 
-  tags = { 
-    Name                     = "${var.cluster_name}-node-sg" 
+  tags = {
+    Name = "${var.cluster_name}-node-sg"
     # karpenter.sh/discovery 태그를 추가합니다.
     "karpenter.sh/discovery" = var.cluster_name # "prod-eks"로 매핑됨
   }
@@ -39,6 +39,20 @@ resource "aws_security_group_rule" "cluster_ingress_admin" {
   cidr_blocks       = [var.admin_ip]
   security_group_id = aws_security_group.cluster.id
   description       = "Allow Admin IP to access Control Plane API"
+}
+
+resource "aws_security_group_rule" "cluster_additional" {
+  for_each = var.cluster_security_group_additional_rules
+
+  type                     = each.value.type
+  from_port                = each.value.from_port
+  to_port                  = each.value.to_port
+  protocol                 = each.value.protocol
+  security_group_id        = aws_security_group.cluster.id
+  cidr_blocks              = lookup(each.value, "cidr_blocks", [])
+  ipv6_cidr_blocks         = lookup(each.value, "ipv6_cidr_blocks", [])
+  source_security_group_id = lookup(each.value, "source_security_group_id", null)
+  description              = lookup(each.value, "description", null)
 }
 
 # [Node SG] 노드 간 통신 전면 허용 (같은 SG를 가진 노드끼리)
@@ -92,7 +106,7 @@ resource "aws_security_group_rule" "cluster_ingress_node" {
   from_port                = 443
   to_port                  = 443
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.node.id  # 노드들이
+  source_security_group_id = aws_security_group.node.id    # 노드들이
   security_group_id        = aws_security_group.cluster.id # 관리실로 들어옵니다
   description              = "Allow EKS nodes to communicate with Control Plane API"
 }

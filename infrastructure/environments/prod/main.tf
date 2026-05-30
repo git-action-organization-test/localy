@@ -15,7 +15,7 @@ terraform {
     bucket         = "feifo-prod-tf-state-backend"
     key            = "eks-gitops/prod/network.tfstate"
     region         = "ap-northeast-2"
-    dynamodb_table = "feifo-prod-tf-locks"
+    #dynamodb_table = "feifo-prod-tf-locks"
   }
 
   required_providers {
@@ -37,6 +37,10 @@ terraform {
     }
     http = {
       source  = "hashicorp/http"
+      version = "~> 3.0"
+    }
+    random = {
+      source  = "hashicorp/random"
       version = "~> 3.0"
     }
   }
@@ -105,7 +109,7 @@ module "eks" {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
-      cidr_blocks = local.eks_public_access_cidrs
+      cidr_blocks = tolist(setsubtract(toset(local.eks_public_access_cidrs), toset(var.admin_ip != "" ? [var.admin_ip] : [])))
       description = "Allow HTTPS to cluster SG from Terraform runner / allowed CIDRs"
     }
   }
@@ -201,5 +205,15 @@ resource "helm_release" "karpenter" {
   set {
     name  = "nodeSelector.role"
     value = "system"
+  }
+
+  set {
+    name  = "serviceMonitor.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "serviceMonitor.additionalLabels.release"
+    value = "kube-prometheus-stack"
   }
 }

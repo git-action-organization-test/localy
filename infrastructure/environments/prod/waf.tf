@@ -1,6 +1,19 @@
 # -------------------------------------------------------------------------
 # AWS WAFv2 Web ACL for ALB Ingress
 # -------------------------------------------------------------------------
+resource "aws_wafv2_ip_set" "admin_ips" {
+  name               = "prod-grafana-admin-ip-set"
+  description        = "Authorized IP addresses for Grafana dashboard access"
+  scope              = "REGIONAL"
+  ip_address_version = "IPV4"
+  addresses          = [var.admin_ip]
+
+  tags = {
+    Environment = "prod"
+    ManagedBy   = "terraform"
+  }
+}
+
 resource "aws_wafv2_web_acl" "ingress_waf" {
   name        = "prod-ingress-waf"
   description = "WAF for Production ALB Ingress - Managed Rules"
@@ -9,13 +22,48 @@ resource "aws_wafv2_web_acl" "ingress_waf" {
   default_action {
     allow {}
   }
+  
+  rule {
+    name     = "Block-Unauthorized-Grafana-Access"
+    priority = 0 # 최상단에 배치하여 WCU 연산 비용 최적화
 
-  visibility_config {
-    cloudwatch_metrics_enabled = true
-    metric_name                = "prod-ingress-waf-metric"
-    sampled_requests_enabled   = true
+    action {
+      block {}
+    }
+
+    statement {
+      and_statement {
+        statement {
+          byte_match_statement {
+            field_to_match {
+              single_header { name = "host" }
+            }
+            positional_constraint = "EXACTLY"
+            search_string         = "grafana.feifo.click"
+            text_transformation {
+              priority = 0
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          not_statement {
+            statement {
+              ip_set_reference_statement {
+                arn = aws_wafv2_ip_set.admin_ips.arn
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "BlockUnauthorizedGrafanaAccess"
+      sampled_requests_enabled   = true
+    }
   }
-
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 10
@@ -53,7 +101,12 @@ resource "aws_wafv2_web_acl" "ingress_waf" {
       sampled_requests_enabled   = true
     }
   }
-
+  
+	visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "prod-ingress-waf-metric"
+    sampled_requests_enabled   = true
+  }
   tags = {
     Environment = "prod"
     ManagedBy   = "terraform"
